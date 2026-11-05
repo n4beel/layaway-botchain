@@ -9,7 +9,7 @@ export enum PlanState {
   Retracted = 5,
 }
 
-export interface PlanData {
+export interface Plan {
   id: bigint;
   seller: string;
   buyer: string;
@@ -25,6 +25,7 @@ export interface PlanData {
   termsBlock: number;
   item: string;
 }
+export type PlanData = Plan;
 
 /**
  * Total BOT cost of the plan: instalment * count

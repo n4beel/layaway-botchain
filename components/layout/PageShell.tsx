@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ConnectButton from "@/components/ui/ConnectButton";
 import NetworkBadge from "@/components/botchain/NetworkBadge";
+import BuiltOnBotChain from "@/components/botchain/BuiltOnBotChain";
+import { footerLinks } from "@/lib/botchain/chain";
 
 interface PageShellProps {
   children: React.ReactNode;
@@ -13,6 +15,7 @@ interface PageShellProps {
 
 export default function PageShell({ children, title, description }: PageShellProps) {
   const pathname = usePathname();
+  const links = footerLinks();
 
   const navLinks = [
     { href: "/", label: "Tracks" },
@@ -65,37 +68,47 @@ export default function PageShell({ children, title, description }: PageShellPro
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+        {(title || description) && (
+          <div className="mb-6 space-y-1">
+            {title && (
+              <h1 className="font-heading text-2xl font-bold text-[var(--text-primary)]">
+                {title}
+              </h1>
+            )}
+            {description && (
+              <p className="text-sm text-[var(--text-secondary)]">{description}</p>
+            )}
+          </div>
+        )}
         {children}
       </main>
 
-      {/* Footer - exactly 3 links */}
+      {/* Footer - exactly 3 links via footerLinks and BuiltOnBotChain */}
       <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] py-6 text-xs text-[var(--text-muted)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-heading font-semibold text-[var(--text-primary)]">LAYAWAY</span>
-            <span>•</span>
-            <span>Instalment escrow with staged track execution</span>
-          </div>
+          <BuiltOnBotChain />
           <div className="flex items-center gap-6">
             <a
-              href="https://github.com/botchain-projects/layaway-botchain"
+              href={links.contract ?? "#"}
               target="_blank"
               rel="noreferrer"
-              className="hover:text-[var(--text-primary)] transition-colors"
+              className="hover:text-[var(--text-primary)] transition-colors underline"
             >
               Contract
             </a>
             <a
-              href="/"
-              className="hover:text-[var(--text-primary)] transition-colors"
-            >
-              Site
-            </a>
-            <a
-              href="https://scan.botchain.net"
+              href={links.site}
               target="_blank"
               rel="noreferrer"
-              className="hover:text-[var(--text-primary)] transition-colors"
+              className="hover:text-[var(--text-primary)] transition-colors underline"
+            >
+              BOT Chain
+            </a>
+            <a
+              href={links.explorer}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-[var(--text-primary)] transition-colors underline"
             >
               Explorer
             </a>
