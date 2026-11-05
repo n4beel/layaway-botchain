@@ -1,7 +1,7 @@
 # Handover: Layaway (Project 70)
 
 ## Status
-- **Status**: Completed and handed over cleanly.
+- **Status**: Completed and handed over cleanly (fixed round 1).
 - **Contract Address (local anvil)**: `0x5FbDB2315678afecb367f032d93F642f64180aa3` (verified with `cast code`).
 - **Gates Passed**:
   - `npm run typecheck` (zero TypeScript errors)
@@ -12,8 +12,8 @@
   - `python3 scripts/check-tokens.py layaway` (0 undefined tokens)
   - `python3 scripts/check-ui-contract.py layaway` (passes with 0 errors)
   - `python3 scripts/check-honesty.py layaway` (0 findings)
-  - `python3 scripts/mutation-check.py layaway` (14/25 mutants killed; 11 equivalents/defensive safeguards documented in `contracts/DECISIONS.md`)
-  - Foundry tests: 20 passed (19 unit/fuzz tests + 1 invariant suite running 128,000 calls with 0 reverts)
+  - `python3 scripts/mutation-check.py layaway` (21/25 mutants killed; 4 genuinely equivalent survivors documented in `contracts/DECISIONS.md`)
+  - Foundry tests: 25 passed (24 unit/fuzz/boundary tests + 1 invariant suite)
 
 ## Visual & Responsive Pass
 - Verified at 1280 px:
@@ -40,4 +40,4 @@
 | `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC` | Stranger / Observer | Can lapse overdue plans past grace period on `/plan/[id]` |
 
 ## Notes & Deviations
-- None. Fully adheres to `docs/specs/70-layaway.md` and `00-CONVENTIONS.md`.
+- None. Fully adheres to `docs/specs/70-layaway.md`, `00-CONVENTIONS.md`, and feedback round 1 test additions.

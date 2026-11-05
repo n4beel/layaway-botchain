@@ -429,4 +429,144 @@ contract LayawayTest is Test {
     assertEq(uint8(p.state), uint8(Layaway.State.Completed));
     assertEq(layaway.pending(seller), uint256(instalmentFuzz) * countFuzz);
   }
+
+  // --- Feedback Round 1 Pinning Tests ---
+
+  function test_PagingOffsetsMiddleAndPastEnd() public {
+    // Create 6 plans
+    for (uint256 i = 0; i < 6; i++) {
+      vm.prank(seller);
+      layaway.offer(buyer, "Item", "Terms", INSTALMENT, COUNT, PERIOD, GRACE, FORFEIT_BPS);
+    }
+    // Plan IDs are 1..6
+
+    // 1. latest view middle page: offset = 2, count = 2 -> [4, 3]
+    (uint256[] memory idsLatestMid, ) = layaway.latest(2, 2);
+    assertEq(idsLatestMid.length, 2);
+    assertEq(idsLatestMid[0], 4);
+    assertEq(idsLatestMid[1], 3);
+
+    // Page running past the end: offset = 4, count = 4 -> [2, 1] (length clamped to 2)
+    (uint256[] memory idsLatestPast, ) = layaway.latest(4, 4);
+    assertEq(idsLatestPast.length, 2);
+    assertEq(idsLatestPast[0], 2);
+    assertEq(idsLatestPast[1], 1);
+
+    // 2. byParty view middle page for buyer: offset = 2, count = 2 -> [4, 3]
+    (uint256[] memory idsPartyMid, ) = layaway.byParty(buyer, 2, 2);
+    assertEq(idsPartyMid.length, 2);
+    assertEq(idsPartyMid[0], 4);
+    assertEq(idsPartyMid[1], 3);
+
+    // byParty running past end: offset = 4, count = 4 -> [2, 1]
+    (uint256[] memory idsPartyPast, ) = layaway.byParty(buyer, 4, 4);
+    assertEq(idsPartyPast.length, 2);
+    assertEq(idsPartyPast[0], 2);
+    assertEq(idsPartyPast[1], 1);
+  }
+
+  function test_EmptyPageViews() public {
+    // count == 0 returns empty array
+    (uint256[] memory ids1, ) = layaway.latest(0, 0);
+    assertEq(ids1.length, 0);
+
+    // offset >= total returns empty array
+    (uint256[] memory ids2, ) = layaway.latest(10, 5);
+    assertEq(ids2.length, 0);
+
+    (uint256[] memory ids3, ) = layaway.byParty(buyer, 0, 0);
+    assertEq(ids3.length, 0);
+
+    (uint256[] memory ids4, ) = layaway.byParty(buyer, 10, 5);
+    assertEq(ids4.length, 0);
+  }
+
+  function test_BoundariesAtExactSecond() public {
+    // Offer accepted at block.timestamp == offerBy succeeds
+    vm.prank(seller);
+    uint256 id = layaway.offer(buyer, "Item", "Terms", INSTALMENT, COUNT, PERIOD, GRACE, FORFEIT_BPS);
+    Layaway.Plan memory p = layaway.planOf(id);
+
+    vm.warp(p.offerBy);
+    vm.prank(buyer);
+    layaway.start{value: INSTALMENT}(id); // succeeds!
+
+    // Offer one second later reverts OfferExpired
+    vm.prank(seller);
+    uint256 idLate = layaway.offer(buyer, "Item2", "Terms2", INSTALMENT, COUNT, PERIOD, GRACE, FORFEIT_BPS);
+    Layaway.Plan memory pLate = layaway.planOf(idLate);
+
+    vm.warp(pLate.offerBy + 1);
+    vm.prank(buyer);
+    vm.expectRevert(Layaway.OfferExpired.selector);
+    layaway.start{value: INSTALMENT}(idLate);
+
+    // Overdue boundary: plan is NOT overdue at dueAt + graceSecs and IS overdue at dueAt + graceSecs + 1
+    (uint64 dueAt, bool overdueAtGraceEnd) = layaway.nextDue(id);
+    vm.warp(dueAt + GRACE);
+    (, overdueAtGraceEnd) = layaway.nextDue(id);
+    assertFalse(overdueAtGraceEnd);
+
+    // Attempting lapse at dueAt + GRACE reverts NotOverdue
+    vm.prank(seller);
+    vm.expectRevert(abi.encodeWithSelector(Layaway.NotOverdue.selector, dueAt, dueAt + GRACE));
+    layaway.lapse(id);
+
+    // At dueAt + GRACE + 1, it IS overdue and lapse succeeds
+    vm.warp(dueAt + GRACE + 1);
+    (, bool overdueAfter) = layaway.nextDue(id);
+    assertTrue(overdueAfter);
+
+    vm.prank(seller);
+    layaway.lapse(id);
+  }
+
+  function test_ExactLimitsItemBytesAndInstalmentCount() public {
+    // Item of exactly MAX_ITEM_BYTES (64 bytes) accepted
+    bytes memory item64 = new bytes(64);
+    for (uint256 i = 0; i < 64; i++) item64[i] = "a";
+
+    vm.prank(seller);
+    uint256 id64 = layaway.offer(buyer, string(item64), "Terms", INSTALMENT, COUNT, PERIOD, GRACE, FORFEIT_BPS);
+    assertTrue(id64 > 0);
+
+    // 65 bytes item rejected
+    bytes memory item65 = new bytes(65);
+    for (uint256 i = 0; i < 65; i++) item65[i] = "a";
+
+    vm.prank(seller);
+    vm.expectRevert(Layaway.BadText.selector);
+    layaway.offer(buyer, string(item65), "Terms", INSTALMENT, COUNT, PERIOD, GRACE, FORFEIT_BPS);
+
+    // count == MAX_COUNT (24) accepted
+    uint8 maxCount = layaway.MAX_COUNT();
+    vm.prank(seller);
+    uint256 idMaxCount = layaway.offer(buyer, "Item", "Terms", INSTALMENT, maxCount, PERIOD, GRACE, FORFEIT_BPS);
+    assertTrue(idMaxCount > 0);
+
+    // count == MAX_COUNT + 1 rejected
+    vm.prank(seller);
+    vm.expectRevert(Layaway.BadParams.selector);
+    layaway.offer(buyer, "Item", "Terms", INSTALMENT, maxCount + 1, PERIOD, GRACE, FORFEIT_BPS);
+  }
+
+  function test_ZeroForfeitZeroRefundCancelEventAndStorage() public {
+    // Zero forfeit plan (0 bps)
+    vm.prank(seller);
+    uint256 idZeroForfeit = layaway.offer(buyer, "Item", "Terms", INSTALMENT, COUNT, PERIOD, GRACE, 0);
+
+    vm.prank(buyer);
+    layaway.start{value: INSTALMENT}(idZeroForfeit);
+
+    uint256 sellerPendingBefore = layaway.pending(seller);
+    uint256 buyerBalBefore = buyer.balance;
+
+    vm.prank(buyer);
+    layaway.cancel(idZeroForfeit);
+
+    // seller pending unchanged (no zero-forfeit added)
+    assertEq(layaway.pending(seller), sellerPendingBefore);
+    // buyer received exact refund of 1 ether
+    assertEq(buyer.balance, buyerBalBefore + INSTALMENT);
+  }
 }

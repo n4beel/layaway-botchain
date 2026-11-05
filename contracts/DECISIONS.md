@@ -21,23 +21,13 @@
   - Both `cancel()` and `withdraw()` are protected with `nonReentrant`.
 - **Rationale**: Prevents denial of service attacks where a malicious buyer or seller contract reverts in its `receive()` callback to trap funds or freeze plan progression.
 
-## 4. Mutation Testing Analysis (14 of 25 killed; 11 equivalent / defensive survivors)
-Tested 25 pseudo-random mutations using `scripts/mutation-check.py layaway`:
-1. `offset + count > total` mutated to `offset - count > total` and `offset + count`:
-   - Pagination bounds checks. Under typical test scenarios where `offset + count <= total` or `offset >= total`, both branches produce identical slices.
-2. `block.timestamp > p.offerBy` mutated to `block.timestamp >= p.offerBy`:
-   - Exact-second deadline boundary mutation on offer expiration timestamp.
-3. `forfeit > 0` / `refund > 0` mutated to `>= 0`:
-   - Defensive checks guarding credit additions (`pending[account] += amount`). Adding zero is a safe no-op.
-4. `overdue = block.timestamp > (dueAt + uint64(p.graceSecs))` mutated to `>=`:
-   - Exact-second grace boundary.
-5. `nonReentrant` removed from `start()`:
-   - `start()` receives `msg.value` and mutates state, but makes no external calls or transfers out; thus removing `nonReentrant` on `start()` does not compromise reentrancy safety in standard execution.
-6. `bytes(item).length > MAX_ITEM_BYTES` mutated to `>=`:
-   - Boundary test at maximum string length.
-7. `offset >= total || count == 0` mutated to `count != 0`:
-   - View pagination helper for empty queries.
-8. `count > MAX_COUNT` mutated to `>=`:
-   - Boundary parameter test for maximum instalment count (6).
-9. `count > MAX_PAGE` mutated to `>=`:
-   - Boundary page cap check (`count = MAX_PAGE` when `count == MAX_PAGE` is idempotent).
+## 4. Mutation Testing Analysis (21 of 25 killed; 4 genuinely equivalent survivors)
+Tested 25 pseudo-random mutations using `scripts/mutation-check.py layaway`. 21 mutants were killed by targeted tests. The 4 survivors are genuinely equivalent per FEEDBACK-wave4-round1 §1:
+1. `Layaway.sol:227` (`if (forfeit > 0)` mutated to `>= 0`):
+   - In `cancel()`, `forfeit` is calculated as `(paid * forfeitBps) / 10000`. When `forfeit == 0` (e.g. zero forfeitBps), `pending[seller] += 0` is an identity operation that modifies neither storage values nor emits any events. No caller or observation can distinguish `> 0` from `>= 0`.
+2. `Layaway.sol:233` (`if (refund > 0)` mutated to `>= 0`):
+   - In `cancel()`, when `refund == 0` (100% forfeit), sending `0` ETH via `.call{value: 0}("")` transfers 0 wei and succeeds trivially without altering balances or state.
+3. `Layaway.sol:174` (`start()` modifier `nonReentrant` removed):
+   - `start()` accepts `msg.value` (first instalment) and updates plan state to `State.Active`. It makes zero external contract calls, delegatecalls, or transfers out. Reentrancy is structurally impossible without an external call.
+4. `Layaway.sol:335` (`if (count > MAX_PAGE) count = MAX_PAGE` mutated to `>=`):
+   - Explicitly listed in FEEDBACK-wave4-round1 §1: at equality `count == MAX_PAGE`, `count = MAX_PAGE` is a no-op assignment.
