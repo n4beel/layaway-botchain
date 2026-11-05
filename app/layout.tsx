@@ -1,38 +1,46 @@
-import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata } from "next";
+import { Oswald, Assistant, Syne_Mono } from "next/font/google";
 import { EvmProvider } from "@/components/providers/EvmProvider";
 import { ToastProvider } from "@/components/ui/Toast";
-import { app } from "@/lib/app-config";
+import WrongNetworkBar from "@/components/botchain/WrongNetworkBar";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"], display: "swap" });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], display: "swap" });
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const assistant = Assistant({
+  variable: "--font-assistant",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const syneMono = Syne_Mono({
+  variable: "--font-syne-mono",
+  subsets: ["latin"],
+  weight: ["400"],
+});
 
 export const metadata: Metadata = {
-  title: `${app.name} — ${app.tagline}`,
-  description: app.tagline,
-  openGraph: { title: app.name, description: app.tagline, type: "website", url: app.url },
+  title: "Layaway — Instalment Escrow Plans",
+  description: "Pay in instalments. The seller is paid when you finish.",
 };
 
-/** `width=device-width` plus a floor on zoom. Pinch-zoom stays available; nothing is locked out. */
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#0A0A0A",
-};
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
-      // The project's accent, written once at the root. Every component reads `var(--accent)`, so
-      // this is the only place a palette change has to happen.
-      style={{ ["--accent" as string]: app.accent }}
-    >
-      <body className="min-h-full antialiased">
+    <html lang="en" className={`${oswald.variable} ${assistant.variable} ${syneMono.variable}`}>
+      <body className="antialiased min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
         <EvmProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <WrongNetworkBar />
+            {children}
+          </ToastProvider>
         </EvmProvider>
       </body>
     </html>

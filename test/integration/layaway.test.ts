@@ -1,12 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawn, ChildProcess } from "node:child_process";
-import { createWalletClient, createPublicClient, http, parseEther } from "viem";
+import { createWalletClient, createPublicClient, http, parseEther, defineChain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { LAYAWAY_ABI } from "../../lib/botchain/abi";
 import { ifCancelled } from "../../lib/layaway";
 
 const ANVIL_PORT = 8670;
 const RPC_URL = `http://127.0.0.1:${ANVIL_PORT}`;
+
+const localChain = defineChain({
+  id: 31337,
+  name: "Local Anvil",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [RPC_URL] },
+    public: { http: [RPC_URL] },
+  },
+});
 
 // Standard Anvil test accounts
 const SELLER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -22,16 +32,19 @@ describe("Layaway Integration Tests", () => {
   let contractAddress: `0x${string}`;
 
   const publicClient = createPublicClient({
+    chain: localChain,
     transport: http(RPC_URL),
   });
 
   const sellerClient = createWalletClient({
     account: sellerAccount,
+    chain: localChain,
     transport: http(RPC_URL),
   });
 
   const buyerClient = createWalletClient({
     account: buyerAccount,
+    chain: localChain,
     transport: http(RPC_URL),
   });
 
